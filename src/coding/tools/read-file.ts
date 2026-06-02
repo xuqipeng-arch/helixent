@@ -9,7 +9,8 @@ const DEFAULT_MAX_CHARS = 12000;
 
 export const readFileTool = defineTool({
   name: "read_file",
-  description: "Read a file from an absolute path. Supports optional line-range reads for large files.",
+  description:
+    "Read a file from an absolute path. Returns content with 1-based line numbers prefixed on each line (left-padded for alignment). Supports optional line-range reads for large files.",
   parameters: z.object({
     description: z
       .string()
@@ -39,7 +40,12 @@ export const readFileTool = defineTool({
     }
 
     const text = await file.text();
-    const lines = text.split("\n");
+    if (text === "") return "";
+
+    const rawLines = text.split("\n");
+    // A trailing "\n" produces an empty final element that isn't a real line.
+    const lines =
+      text.endsWith("\n") && rawLines[rawLines.length - 1] === "" ? rawLines.slice(0, -1) : rawLines;
     const start = startLine ? startLine - 1 : 0;
     const end = endLine ? Math.min(endLine, lines.length) : lines.length;
 
@@ -51,14 +57,12 @@ export const readFileTool = defineTool({
       });
     }
 
+    const padWidth = String(lines.length).length;
     const selected = lines.slice(start, end);
-    const numbered = selected.map((line, index) => `${start + index + 1}: ${line}`).join("\n");
+    const numbered = selected
+      .map((line, index) => `${String(start + index + 1).padStart(padWidth)}: ${line}`)
+      .join("\n");
     const limited = truncateText(numbered, maxChars ?? DEFAULT_MAX_CHARS);
-    const isWholeFileRead = !startLine && !endLine;
-
-    // Do NOT return a structured result here.
-    // Instead, return the raw text.
-    // TODO: add line numbers to the result with padding to the left.
-    return isWholeFileRead && !limited.truncated ? text : limited.text;
+    return limited.text;
   },
 });
