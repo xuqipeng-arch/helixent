@@ -17,7 +17,7 @@ afterEach(async () => {
 });
 
 describe("readFileTool", () => {
-  test("returns raw content for whole-file reads", async () => {
+  test("returns numbered lines for whole-file reads", async () => {
     const filePath = join(tempDir, "demo.txt");
     await writeFile(filePath, "a\nb\n");
 
@@ -26,7 +26,19 @@ describe("readFileTool", () => {
       path: filePath,
     });
 
-    expect(result).toBe("a\nb\n");
+    expect(result).toBe("1: a\n2: b");
+  });
+
+  test("returns empty string for empty files", async () => {
+    const filePath = join(tempDir, "empty.txt");
+    await writeFile(filePath, "");
+
+    const result = await readFileTool.invoke({
+      description: "Read empty file",
+      path: filePath,
+    });
+
+    expect(result).toBe("");
   });
 
   test("returns numbered lines for ranged reads", async () => {
@@ -40,8 +52,22 @@ describe("readFileTool", () => {
       endLine: 3,
     });
 
-    expect(result).toContain("2: second");
-    expect(result).toContain("3: third");
+    expect(result).toBe("2: second\n3: third");
+  });
+
+  test("left-pads line numbers based on total file lines", async () => {
+    const filePath = join(tempDir, "padded.txt");
+    const content = Array.from({ length: 12 }, (_, i) => `line${i + 1}`).join("\n");
+    await writeFile(filePath, content);
+
+    const result = await readFileTool.invoke({
+      description: "Read padded file",
+      path: filePath,
+      startLine: 1,
+      endLine: 2,
+    });
+
+    expect(result).toBe(" 1: line1\n 2: line2");
   });
 
   test("returns structured error for invalid range", async () => {
